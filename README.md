@@ -9,53 +9,78 @@ The goal is to develop a simple,practical queue management solution that helps o
 ## Objectives:
 
 -Generate unique ticket numbers for clients.
+
 -Allow clients to select their required banking service.
+
 -Display ticket details clearly.
+
 -Calculate estimated waiting times.
+
 -Maintain an organised queue based on customer arrivals.
+
 -Develop a foundation for a future graphical ticket-printing system.
 
 ## Technology Stack:
 
--Python
--Visual Studio Code
--Git and GitHub Desktop
--GitHub for source-code management and project documentation
+Python
+
+Visual Studio Code
+
+Git and GitHub Desktop
+
+GitHub for source-code management and project documentation
 
 ## How does it work work?
 
 1.The client selects a banking service.
+
 2.The system identifies the selected service.
+
 3.A unique ticket number is assigned.
+
 4.The system calculates an estimated waiting time.
+
 5.The ticket details are displayed for the client.
 
 The intended numbering system uses one sequence across all services, ensuring that each newly issued ticket receives a different number.
 
 ## Current Features:
 
--Service selection: Clients can select open an account,credit enquiries,funeral/life cover,business account or general enquiries.
--Unique ticket numbering: Each client receives a sequential ticket number shared across all banking services.
--Service-specific queue tracking: The system maintains a separate waiting-client count for each banking service.
--Estimated waiting times: The system estimates the waiting time based on the number of clients already waiting for the selected service and its configured average service duration.
--Ticket display: The system displays the ticket number,selected service,number of people ahead in that service queue and estimated waiting time.
--Continuous operation: The system can issue tickets to multiple clients during one program run.
+Service selection: Clients can select open an account,credit enquiries,funeral/life cover,business account or general enquiries.
+
+Unique ticket numbering: Each client receives a sequential ticket number shared across all banking services.
+
+Service-specific queue tracking: The system maintains a separate waiting-client count for each banking service.
+
+Estimated waiting times: The system estimates the waiting time based on the number of clients already waiting for the selected service and its configured average service duration.
+
+Ticket display: The system displays the ticket number,selected service,number of people ahead in that service queue and estimated waiting time.
+
+Continuous operation: The system can issue tickets to multiple clients during one program run.
 
 ## Current Limitation:
 
--Waiting counts are not yet reduced when clients are assisted.
--Ticket numbers and queue counts reset when the program restarts.
--Waiting times are simplified estimates based on configured service durations.
--The system does not yet account for multiple consultants,actual service durations or delays.
--Tickets are displayed in the terminal; physical ticket printing has not yet been implemented.
+Waiting counts are not yet reduced when clients are assisted.
+
+Ticket numbers and queue counts reset when the program restarts.
+
+Waiting times are simplified estimates based on configured service durations.
+
+The system does not yet account for multiple consultants,actual service durations or delays.
+
+Tickets are displayed in the terminal; physical ticket printing has not yet been implemented.
 
 ## Future Improvements:
 
--Add a staff function to call and complete tickets.
--Update queue counts and waiting-time estimates as clients are assisted.
--Save ticket numbers and queue data between program restarts.
--Introduce a graphical interface and printable ticket layout.
--Support multiple consultants and more realistic waiting-time calculations.
+Add a staff function to call and complete tickets.
+
+Update queue counts and waiting-time estimates as clients are assisted.
+
+Save ticket numbers and queue data between program restarts.
+
+Introduce a graphical interface and printable ticket layout.
+
+Support multiple consultants and more realistic waiting-time calculations.
 
 ## Learning Goals:
 
