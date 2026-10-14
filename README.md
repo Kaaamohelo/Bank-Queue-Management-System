@@ -46,17 +46,17 @@ The intended numbering system uses one sequence across all services, ensuring th
 
 ## Current Features:
 
-Service selection: Clients can select open an account,credit enquiries,funeral/life cover,business account or general enquiries.
+-Service selection: Clients can select open an account,credit enquiries,funeral/life cover,business account or general enquiries.
 
-Unique ticket numbering: Each client receives a sequential ticket number shared across all banking services.
+-Unique ticket numbering: Each client receives a sequential ticket number shared across all banking services.
 
-Service-specific queue tracking: The system maintains a separate waiting-client count for each banking service.
+-Service-specific queue tracking: The system maintains a separate waiting-client count for each banking service.
 
-Estimated waiting times: The system estimates the waiting time based on the number of clients already waiting for the selected service and its configured average service duration.
+-Estimated waiting times: The system estimates the waiting time based on the number of clients already waiting for the selected service and its configured average service duration.
 
-Ticket display: The system displays the ticket number,selected service,number of people ahead in that service queue and estimated waiting time.
+-Ticket display: The system displays the ticket number,selected service,number of people ahead in that service queue and estimated waiting time.
 
-Continuous operation: The system can issue tickets to multiple clients during one program run.
+-Continuous operation: The system can issue tickets to multiple clients during one program run.
 
 ## Current Limitation:
 
