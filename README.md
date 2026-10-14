@@ -92,3 +92,5 @@ This project is also part of my practical journey into software development.Thro
 This project is developed as a personal programming project to practise Python and build practical software development skills.
 
 Status : In development 
+
+LATEST UPDATE : 14 OCTOBER 2026
