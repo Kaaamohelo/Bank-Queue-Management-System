@@ -1,12 +1,6 @@
 ticket_number = 1
 
-waiting_clients = {
-    "Open an account": 0,
-    "Credit enquiry": 0,
-    "Funeral/Life Cover": 0,
-    "Business account": 0,
-    "General enquiries": 0
-}
+waiting_queue = []
 
 service_times = {
     "Open an account": 10,
@@ -15,6 +9,8 @@ service_times = {
     "Business account": 8,
     "General enquiries": 8
 }
+
+available_consultants = 3 
 
 while True:
     print("\n===== BANK QUEUE MANAGEMENT =====")
@@ -53,27 +49,34 @@ while True:
         print("Invalid choice. Please try again.")
         continue
 
-    people_ahead = waiting_clients[service]
-    estimated_wait = people_ahead * service_times[service]
+    people_ahead = len(waiting_queue)
 
-    waiting_clients[service] += 1
+    estimated_waiting_time = 0
 
-    print("\n========== YOUR TICKET ==========")
-    print(f"Ticket number:{ticket_number:03}")
+    for ticket in waiting_queue:
+        estimated_waiting_time += service_times[ticket["service"]]
+
+    if available_consultants > 0:
+        estimated_waiting_time = estimated_waiting_time / available_consultants
+
+    waiting_queue.append({"ticket_number": ticket_number, "service": service
+    })                      
+
+    print("\n=======================================")
+    print("            BANK QUEUE TICKET")
+    print("=========================================")
+    print(f"Ticket number: {ticket_number:03}")
     print(f"Service: {service}")
-    print(f"People ahead in this service: {people_ahead}")
-    print(f"Estimated wait time: {estimated_wait} minutes")
-
-
+    print(f"People ahead: {people_ahead}")
+    print(f"Estimated waiting time: {estimated_waiting_time:.1f} minutes")
+    print("------------------------------------------")
     print("Please wait until your number is called.")
+    print("Thank you for your patience.")
+    print("===========================================")
 
-    print("Current waiting clients for each service:")
-
-
-    for service, count in waiting_clients.items():
-        print(f"  {service}: {count}")
+    print("Total clients waiting in the queue:", len(waiting_queue))
 
 
-        print("=================================")
+    print("=================================")
 
     ticket_number += 1
