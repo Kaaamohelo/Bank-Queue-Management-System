@@ -22,13 +22,13 @@ The goal is to develop a simple,practical queue management solution that helps o
 
 ## Technology Stack:
 
-Python
+-Python
 
-Visual Studio Code
+-Visual Studio Code
 
-Git and GitHub Desktop
+-Git and GitHub Desktop
 
-GitHub for source-code management and project documentation
+-GitHub for source-code management and project documentation
 
 ## How does it work work?
 
@@ -60,27 +60,27 @@ Continuous operation: The system can issue tickets to multiple clients during on
 
 ## Current Limitation:
 
-Waiting counts are not yet reduced when clients are assisted.
+-Waiting counts are not yet reduced when clients are assisted.
 
-Ticket numbers and queue counts reset when the program restarts.
+-Ticket numbers and queue counts reset when the program restarts.
 
-Waiting times are simplified estimates based on configured service durations.
+-Waiting times are simplified estimates based on configured service durations.
 
-The system does not yet account for multiple consultants,actual service durations or delays.
+-The system does not yet account for multiple consultants,actual service durations or delays.
 
-Tickets are displayed in the terminal; physical ticket printing has not yet been implemented.
+-Tickets are displayed in the terminal; physical ticket printing has not yet been implemented.
 
 ## Future Improvements:
 
-Add a staff function to call and complete tickets.
+-Add a staff function to call and complete tickets.
 
-Update queue counts and waiting-time estimates as clients are assisted.
+-Update queue counts and waiting-time estimates as clients are assisted.
 
-Save ticket numbers and queue data between program restarts.
+-Save ticket numbers and queue data between program restarts.
 
-Introduce a graphical interface and printable ticket layout.
+-Introduce a graphical interface and printable ticket layout.
 
-Support multiple consultants and more realistic waiting-time calculations.
+-Support multiple consultants and more realistic waiting-time calculations.
 
 ## Learning Goals:
 
