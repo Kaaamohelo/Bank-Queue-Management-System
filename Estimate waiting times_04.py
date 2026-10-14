@@ -68,7 +68,7 @@ while True:
     print(f"Ticket number: {ticket_number:03}")
     print(f"Service: {service}")
     print(f"People ahead: {people_ahead}")
-    print(f"Estimated waiting time: {estimated_waiting_time:.1f} minutes")
+    print(f"Estimated waiting time: {estimated_waiting_time:.0f} minutes")
     print("------------------------------------------")
     print("Please wait until your number is called.")
     print("Thank you for your patience.")
