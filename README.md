@@ -50,11 +50,9 @@ The goal is to develop a simple,practical queue management solution that helps o
 
 -Estimated waiting times: The system uses a configurable service times to estimate customer waiting times.
 
--Account for the number of available consultants when calculating estimates waiting times.
+-Calculating estimates waiting times.
 
 -Display the total number of clients waiting. 
-
--Allow consultants to call the next ticket.
 
 -Ticket display: The system displays the ticket number,selected service,number of people ahead in that service queue and estimated waiting time.
 
