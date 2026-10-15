@@ -1,12 +1,12 @@
 # Bank Queue Management System
 
-A Python-based queue management simulation for a bank branch. The system allows customers to select a service, receive a ticket number, and wait in a shared queue while staff monitor consultant availability and advance time to simulate service completion.
+A Python-based queue management simulation for a bank branch.The system allows clients to select a service,receive a ticket number and wait in a shared queue while staff monitor consultant availability and advance time to simulate service completion.
 
 ## Project Overview
 
 This project was designed to model a simple bank service desk where:
 
-- customers choose a banking service,
+- clients choose a banking service,
 - tickets are generated in sequence,
 - waiting times are estimated,
 - and staff can call the next client and monitor consultant status.
@@ -15,7 +15,7 @@ The current version focuses on queue logic and basic simulation behavior using a
 
 ## Main File
 
-- `Final Product_05.py` — main application logic and interactive menu
+- `Final Product_05.py`
 
 ## Features
 
@@ -39,20 +39,16 @@ The current version focuses on queue logic and basic simulation behavior using a
 
 ## How It Works
 
-1. A customer chooses a service from the menu.
+1. A client chooses a service from the menu.
 2. A ticket number is assigned.
-3. The customer is added to the shared queue.
-4. The system estimates how long the customer may wait before being served.
-5. Staff can view the queue, check consultant status, or call the next client.
+3. The client is added to the shared queue.
+4. The system estimates how long the client may wait before being served.
+5. Staff can view the queue,check consultant status,or call the next client.
 6. Time can be advanced to simulate the completion of consultant work.
 
 ## Screenshot
 
-Below is a sample of the command-line interface used by the system:
-
-![Bank Queue Management System Screenshot](https://raw.githubusercontent.com/Kaaamohelo/Bank-Queue-Management-System/main/assets/bank-queue-screenshot.png)
-
-> If you want to add a local screenshot later, place it in an `assets/` folder and update the path above.
+N/A
 
 ## Technology Stack
 
@@ -68,19 +64,14 @@ Below is a sample of the command-line interface used by the system:
 
 From the project directory, run:
 
-```bash
 python "Final Product_05.py"
-```
 
 If your system uses Python 3 explicitly:
 
-```bash
 python3 "Final Product_05.py"
-```
 
 ## Example Menu
 
-```text
 ===== BANK QUEUE MANAGEMENT =====
 Select your service
 1. Open an account
@@ -95,13 +86,12 @@ Select your service
 10. Cancel a ticket
 0. Exit
 =================================
-```
 
 ## Project Status
 
 Status: In development
 
-This project is an educational prototype focused on queue management, ticket generation, waiting estimates, and basic service simulation.
+This project is an educational prototype focused on queue management, ticket generation,waiting estimates and basic service simulation.
 
 ## Future Improvements
 
