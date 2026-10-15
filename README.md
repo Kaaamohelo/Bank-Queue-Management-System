@@ -73,7 +73,9 @@ python3 "Final Product_05.py"
 ## Example Menu
 
 ===== BANK QUEUE MANAGEMENT =====
+
 Select your service
+
 1. Open an account
 2. Credit enquiry
 3. Funeral/Life Cover
@@ -85,6 +87,7 @@ Select your service
 9. Advance time (simulate minutes)
 10. Cancel a ticket
 0. Exit
+
 =================================
 
 ## Project Status
