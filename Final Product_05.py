@@ -1,6 +1,6 @@
 import math
 
-# Bank Queue Management System (improved)
+# Bank Queue Management System (Final Product)
 
 ticket_number = 1
 waiting_queue = []
