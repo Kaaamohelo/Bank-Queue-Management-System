@@ -1,6 +1,6 @@
 import math
 
-# Bank Queue Management System
+# Bank Queue Management System (improved)
 
 ticket_number = 1
 waiting_queue = []
@@ -14,6 +14,8 @@ service_times = {
 }
 
 available_consultants = 3
+# Track each consultant's remaining busy time (in minutes). 0 means free.
+consultants = [{"id": i + 1, "busy_for": 0} for i in range(available_consultants)]
 
 services = {
     "1": "Open an account",
@@ -31,25 +33,50 @@ def print_menu():
         print(f"{key}. {value}")
     print("6. Call next client")
     print("7. View full queue")
+    print("8. View consultants status")
+    print("9. Advance time (simulate minutes)")
+    print("10. Cancel a ticket")
     print("0. Exit")
     print("=================================")
 
 
 def estimate_wait_for_new_client():
-    """Estimate the wait time for a new client joining the queue."""
-    total_waiting_minutes = sum(service_times[client["service"]] for client in waiting_queue)
+    """Estimate how many minutes until a newly arriving client will start being served.
+    Calculation includes remaining busy time for consultants plus total queued service time,
+    divided evenly across consultants (ceil).
+    """
+    total_busy = sum(c["busy_for"] for c in consultants)
+    queued_work = sum(service_times[client["service"]] for client in waiting_queue)
+    total_work = total_busy + queued_work
     if available_consultants > 0:
-        return math.ceil(total_waiting_minutes / available_consultants)
-    return math.ceil(total_waiting_minutes)
+        return math.ceil(total_work / available_consultants)
+    return math.ceil(total_work)
 
 
-def serve_oldest_ticket():
-    """Serve the oldest ticket in the queue (lowest ticket number)."""
+def find_free_consultant():
+    for c in consultants:
+        if c["busy_for"] == 0:
+            return c
+    return None
+
+
+def serve_next_client():
+    """Serve the oldest ticket only if a consultant is free.
+    Returns (ticket, consultant) if served, or (None, reason_string) if not.
+    """
     if not waiting_queue:
-        return None
-    oldest_ticket = min(waiting_queue, key=lambda ticket: ticket["ticket_number"])
+        return None, "No clients in the queue."
+
+    free = find_free_consultant()
+    if not free:
+        return None, "No available consultants right now. Please wait or advance time."
+
+    # Serve the oldest ticket (lowest ticket number)
+    oldest_ticket = min(waiting_queue, key=lambda t: t["ticket_number"])
     waiting_queue.remove(oldest_ticket)
-    return oldest_ticket
+    service_time = service_times.get(oldest_ticket["service"], 0)
+    free["busy_for"] = service_time
+    return oldest_ticket, free
 
 
 def print_full_queue():
@@ -67,9 +94,36 @@ def print_full_queue():
     print(f"Total waiting: {len(waiting_queue)}")
 
 
+def print_consultants():
+    print("\n===== CONSULTANTS =====")
+    for c in consultants:
+        status = f"Idle" if c["busy_for"] == 0 else f"Busy ({c['busy_for']} min left)"
+        print(f"Consultant {c['id']}: {status}")
+    print("=======================")
+
+
+def advance_time(minutes):
+    if minutes <= 0:
+        return
+    for c in consultants:
+        c["busy_for"] = max(0, c["busy_for"] - minutes)
+
+
+def cancel_ticket(ticket_no):
+    for t in waiting_queue:
+        if t["ticket_number"] == ticket_no:
+            waiting_queue.remove(t)
+            return True
+    return False
+
+
 while True:
     print_menu()
-    choice = input("Choose your service: ").strip()
+    try:
+        choice = input("Choose your service: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nExiting.")
+        break
 
     # Exit the queue system
     if choice == "0":
@@ -78,19 +132,51 @@ while True:
 
     # Consultant calls the next client in the queue (oldest ticket)
     if choice == "6":
-        next_ticket = serve_oldest_ticket()
-        if next_ticket:
+        ticket, info = serve_next_client()
+        if ticket:
+            consultant = info
             print("\n===== CALLING NEXT CLIENT =====")
-            print(f"Ticket number: {next_ticket['ticket_number']:03}")
-            print(f"Service: {next_ticket['service']}")
+            print(f"Ticket number: {ticket['ticket_number']:03}")
+            print(f"Service: {ticket['service']}")
+            print(f"Assigned to consultant: {consultant['id']}")
             print("Clients waiting in the queue:", len(waiting_queue))
         else:
-            print("No clients in the queue.")
+            print(info)
         continue
 
     # View the full queue
     if choice == "7":
         print_full_queue()
+        continue
+
+    # View consultants
+    if choice == "8":
+        print_consultants()
+        continue
+
+    # Advance time to simulate consultants finishing work
+    if choice == "9":
+        try:
+            minutes = int(input("Advance time by how many minutes? ").strip())
+        except ValueError:
+            print("Please enter a valid number of minutes.")
+            continue
+        advance_time(minutes)
+        print(f"Advanced time by {minutes} minute(s).")
+        print_consultants()
+        continue
+
+    # Cancel a ticket by number
+    if choice == "10":
+        try:
+            tno = int(input("Enter ticket number to cancel: ").strip())
+        except ValueError:
+            print("Please enter a valid ticket number.")
+            continue
+        if cancel_ticket(tno):
+            print(f"Ticket {tno:03} cancelled.")
+        else:
+            print(f"Ticket {tno:03} not found in waiting queue.")
         continue
 
     # Client selects a service and generates a ticket number
@@ -100,7 +186,7 @@ while True:
         # Number of clients already waiting in the shared queue
         people_ahead = len(waiting_queue)
 
-        # Estimate waiting time based on the total queued service time shared by all consultants.
+        # Estimate waiting time (minutes until start)
         estimated_waiting_time = estimate_wait_for_new_client()
 
         # Add the new client to the shared queue.
@@ -113,7 +199,7 @@ while True:
         print(f"Ticket number: {ticket_number:03}")
         print(f"Service: {service}")
         print(f"People ahead: {people_ahead}")
-        print(f"Estimated waiting time: {estimated_waiting_time} minutes")
+        print(f"Estimated waiting time until start: {estimated_waiting_time} minutes")
         print("---------------------------------------")
         print("Please wait until your number is called.")
         print("Thank you for your patience.")
