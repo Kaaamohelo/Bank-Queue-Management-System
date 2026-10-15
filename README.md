@@ -1,94 +1,124 @@
-# Bank-Queue-Management-System
+# Bank Queue Management System
 
-## Project Overview: 01.py/02.py/03.py/04.py
+A Python-based queue management simulation for a bank branch. The system allows customers to select a service, receive a ticket number, and wait in a shared queue while staff monitor consultant availability and advance time to simulate service completion.
 
-The Bank Queue Management System is a Python-based project designed to issue client queue tickets,estimate waiting times and manage clients waiting to be served in a bank branch.
+## Project Overview
 
-The goal is to develop a simple,practical queue management solution that helps organise customers,reduce confusion,focus on ticket generation and queue management rather than processing banking transactions.
+This project was designed to model a simple bank service desk where:
 
-## Objectives:
+- customers choose a banking service,
+- tickets are generated in sequence,
+- waiting times are estimated,
+- and staff can call the next client and monitor consultant status.
 
--Generate unique ticket numbers for clients.
+The current version focuses on queue logic and basic simulation behavior using a command-line interface.
 
--Allow clients to select their required banking service.
+## Main File
 
--Display ticket details clearly.
+- `Final Product_05.py` — main application logic and interactive menu
 
--Calculate estimated waiting times.
+## Features
 
--Maintain an organised queue based on client arrivals.
+- Service selection menu
+- Unique ticket number generation
+- Shared waiting queue for all services
+- Estimated waiting time before service begins
+- Consultant availability tracking
+- Queue viewing functionality
+- Time simulation for completed service work
+- Ticket cancellation from the waiting queue
+- Oldest-ticket-first service priority
 
-## Technology Stack:
+## Banking Services Included
 
--Python
+1. Open an account
+2. Credit enquiry
+3. Funeral/Life Cover
+4. Business account
+5. General enquiries
 
--Visual Studio Code
+## How It Works
 
--Git and GitHub Desktop
+1. A customer chooses a service from the menu.
+2. A ticket number is assigned.
+3. The customer is added to the shared queue.
+4. The system estimates how long the customer may wait before being served.
+5. Staff can view the queue, check consultant status, or call the next client.
+6. Time can be advanced to simulate the completion of consultant work.
 
--GitHub for source-code management and project documentation
+## Technology Stack
 
-## How does it work work?
+- Python 3
+- Visual Studio Code
+- Git and GitHub
 
-1.The client selects a banking service.
+## Requirements
 
-2.The system identifies the selected service.
+- Python 3.x
 
-3.A unique ticket number is assigned.
+## Run the Project
 
-4.The system calculates an estimated waiting time.
+From the project directory, run:
 
-5.The ticket details are displayed for the client.
+```bash
+python "Final Product_05.py"
+```
 
-## Current Features:
+If your system uses Python 3 explicitly:
 
--Service selection: Clients can select open an account,credit enquiries,funeral/life cover,business account or general enquiries.
+```bash
+python3 "Final Product_05.py"
+```
 
--Unique ticket numbering: Each client receives a sequential ticket number shared across all banking services.
+## Example Menu
 
--Service-specific queue tracking: The system maintains a shared queue across different service types.
+```text
+===== BANK QUEUE MANAGEMENT =====
+Select your service
+1. Open an account
+2. Credit enquiry
+3. Funeral/Life Cover
+4. Business account
+5. General enquiries
+6. Call next client
+7. View full queue
+8. View consultants status
+9. Advance time (simulate minutes)
+10. Cancel a ticket
+0. Exit
+=================================
+```
 
--Estimated waiting times: The system uses a configurable service times to estimate customer waiting times.
+## Project Status
 
--Calculating estimates waiting times.
+Status: In development
 
--Display the total number of clients waiting. 
+This project is an educational prototype focused on queue management, ticket generation, waiting estimates, and basic service simulation.
 
--Ticket display: The system displays the ticket number,selected service,number of people ahead in that service queue and estimated waiting time.
+## Future Improvements
 
--Continuous operation: The system continues issuing tickets util the system is closed.
+- Add more realistic queue logic for multiple service types and consultant workloads
+- Improve waiting-time calculations based on active consultants and client demand
+- Implement a graphical user interface
+- Save queue state between program runs
+- Add staff authentication and administrative controls
+- Introduce ticket printing or digital queue display
 
-## Current Limitation:
+## Learning Goals
 
--Waiting counts are not yet reduced when clients are assisted.
+This project supports learning in:
 
--Waiting times are simplified estimates based on configured service durations.
+- Python programming fundamentals
+- Lists and dictionaries
+- Control flow and loops
+- User input handling
+- Basic simulation logic
+- Queue management concepts
 
--The system does not yet account for multiple consultants,actual service durations or delays.
+## Notes
 
--Tickets are displayed in the terminal; physical ticket printing has not yet been implemented.
+This project is intended for educational practice and simulation purposes. It does not process real banking transactions or customer financial records.
 
-## Future Improvements:
+## Author
 
--Add a staff function to call and complete tickets.
-
--Update queue counts and waiting-time estimates as clients are assisted.
-
--Save ticket numbers and queue data between program restarts.
-
--Introduce a graphical interface and printable ticket layout.
-
--Support multiple consultants and more realistic waiting-time calculations.
-
-## Learning Goals:
-
-This project is also part of my practical journey into software development.Through building it I am developing my understanding of Python fundamentals,including variables,data types,conditional statements,loops,user input,formatted output and basic program logic.
-
-## Note: This is an educational prototype that focuses on client ticket generation,queue tracking,basic queue managment and does not process real customer information or banking transactions.
-
-
-This project is developed as a personal programming project to practise Python and build practical software development skills.
-
-Status : In development 
-
-LATEST UPDATE : 14 OCTOBER 2026
+Kaaamohelo
