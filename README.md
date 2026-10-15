@@ -46,6 +46,14 @@ The current version focuses on queue logic and basic simulation behavior using a
 5. Staff can view the queue, check consultant status, or call the next client.
 6. Time can be advanced to simulate the completion of consultant work.
 
+## Screenshot
+
+Below is a sample of the command-line interface used by the system:
+
+![Bank Queue Management System Screenshot](https://raw.githubusercontent.com/Kaaamohelo/Bank-Queue-Management-System/main/assets/bank-queue-screenshot.png)
+
+> If you want to add a local screenshot later, place it in an `assets/` folder and update the path above.
+
 ## Technology Stack
 
 - Python 3
