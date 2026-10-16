@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+queue_state.sqlite3
+queue_state.sqlite3-*

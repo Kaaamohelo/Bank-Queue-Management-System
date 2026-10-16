@@ -1,10 +1,11 @@
 import json
-import math
+import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+import time
 
-# Core queue logic shared across scripts
-monitor_state_path = Path(__file__).with_name("queue_state.json")
+STATE_DB_PATH = Path(__file__).with_name("queue_state.sqlite3")
+LEGACY_STATE_PATH = Path(__file__).with_name("queue_state.json")
 
 service_times = {
     "Open an account": 10,
@@ -23,8 +24,10 @@ services = {
 }
 
 DEFAULT_CONSULTANT_COUNT = 8
+PUBLIC_CALL_INTERVAL_SECONDS = 5
+PUBLIC_CALL_ATTEMPTS = 3
+PUBLIC_CALL_GRACE_SECONDS = 10
 
-# Runtime state
 ticket_number = 1
 waiting_queue = []
 recent_calls = []
@@ -32,181 +35,602 @@ consultants = []
 
 
 def default_consultants(count=DEFAULT_CONSULTANT_COUNT):
-    return [{"id": i + 1, "busy_for": 0, "ticket": None} for i in range(count)]
+    return [{"id": index + 1, "busy_for": 0, "ticket": None} for index in range(count)]
 
 
-def atomic_write_json(path: Path, obj):
-    tmp = None
+def _connect():
+    connection = sqlite3.connect(STATE_DB_PATH, timeout=10)
+    connection.execute("PRAGMA busy_timeout = 10000")
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS queue_state "
+        "(id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL)"
+    )
+    return connection
+
+
+@contextmanager
+def _database():
+    connection = _connect()
     try:
-        tmp = NamedTemporaryFile("w", delete=False, encoding="utf-8", dir=path.parent)
-        json.dump(obj, tmp, indent=2)
-        tmp.flush()
-        tmp.close()
-        Path(tmp.name).replace(path)
+        yield connection
+        connection.commit()
     except Exception:
-        if tmp is not None:
-            try:
-                Path(tmp.name).unlink()
-            except Exception:
-                pass
+        connection.rollback()
         raise
+    finally:
+        connection.close()
 
 
-def load_state():
-    """Load state from queue_state.json — recovers gracefully on error."""
-    global ticket_number, waiting_queue, consultants, recent_calls
-    if not monitor_state_path.exists():
-        consultants = default_consultants()
-        waiting_queue = []
-        recent_calls = []
-        ticket_number = 1
-        return
+def _default_state():
+    return {
+        "ticket_number": 1,
+        "waiting_queue": [],
+        "consultants": default_consultants(),
+        "recent_calls": [],
+        "activity_log": [],
+    }
 
-    try:
-        with monitor_state_path.open(encoding="utf-8") as fh:
-            state = json.load(fh)
-    except (OSError, json.JSONDecodeError):
-        # Corrupt file: reset state but keep a backup if possible
-        try:
-            backup = monitor_state_path.with_suffix(".bak.json")
-            monitor_state_path.replace(backup)
-        except Exception:
-            pass
-        consultants = default_consultants()
-        waiting_queue = []
-        recent_calls = []
-        ticket_number = 1
-        return
 
-    waiting_queue = state.get("waiting_queue", []) or []
-    consultants = state.get("consultants", []) or default_consultants()
-    recent_calls = state.get("recent_calls", []) or []
+def _normalize_state(state):
+    state = state if isinstance(state, dict) else {}
+    state["waiting_queue"] = state.get("waiting_queue", []) or []
+    state["consultants"] = state.get("consultants", []) or default_consultants()
+    state["recent_calls"] = state.get("recent_calls", []) or []
+    state["activity_log"] = state.get("activity_log", []) or []
+    state["public_call"] = state.get("public_call")
+    for activity in state["activity_log"]:
+        old_employee_number = activity.pop("actor_employee_number", None)
+        old_consultant_id = activity.pop("actor_consultant_id", None)
+        if old_employee_number:
+            activity["actor_label"] = "Local staff"
+        elif old_consultant_id is not None:
+            activity.setdefault("actor_label", f"Legacy consultant {old_consultant_id}")
 
-    for idx, c in enumerate(consultants):
-        c.setdefault("busy_for", 0)
-        c.setdefault("ticket", None)
-        c.setdefault("id", idx + 1)
+    for index, consultant in enumerate(state["consultants"]):
+        consultant.setdefault("busy_for", 0)
+        consultant.setdefault("ticket", None)
+        consultant.setdefault("id", index + 1)
+        if isinstance(consultant["ticket"], dict):
+            consultant["ticket"].setdefault("status", "In service")
 
     next_consultant_id = 1
-    while len(consultants) < DEFAULT_CONSULTANT_COUNT:
-        existing_ids = {consultant.get("id") for consultant in consultants}
+    while len(state["consultants"]) < DEFAULT_CONSULTANT_COUNT:
+        existing_ids = {consultant.get("id") for consultant in state["consultants"]}
         while next_consultant_id in existing_ids:
             next_consultant_id += 1
-        consultants.append({
+        state["consultants"].append({
             "id": next_consultant_id,
             "busy_for": 0,
             "ticket": None,
         })
         next_consultant_id += 1
 
-    # Recover ticket number to avoid duplicates
     max_ticket = 0
-    for t in waiting_queue:
+    for ticket in state["waiting_queue"] + state["recent_calls"]:
         try:
-            max_ticket = max(max_ticket, int(t.get("ticket_number", 0)))
-        except Exception:
-            pass
-    for call in recent_calls:
-        try:
-            max_ticket = max(max_ticket, int(call.get("ticket_number", 0)))
-        except Exception:
-            pass
-    for c in consultants:
-        tk = c.get("ticket")
-        if isinstance(tk, dict):
+            max_ticket = max(max_ticket, int(ticket.get("ticket_number", 0)))
+        except (AttributeError, TypeError, ValueError):
+            continue
+    for consultant in state["consultants"]:
+        active_ticket = consultant.get("ticket")
+        if isinstance(active_ticket, dict):
             try:
-                max_ticket = max(max_ticket, int(tk.get("ticket_number", 0)))
-            except Exception:
+                max_ticket = max(max_ticket, int(active_ticket.get("ticket_number", 0)))
+            except (TypeError, ValueError):
                 pass
 
-    ticket_number = max_ticket + 1
-
-
-def write_monitor_state():
-    state = {
-        "waiting_queue": waiting_queue,
-        "consultants": consultants,
-        "recent_calls": recent_calls[:8],
-    }
     try:
-        atomic_write_json(monitor_state_path, state)
-    except Exception:
-        # best-effort: ignore write failures (monitor may be offline)
-        pass
+        stored_next_ticket = int(state.get("ticket_number", 1))
+    except (TypeError, ValueError):
+        stored_next_ticket = 1
+    state["ticket_number"] = max(stored_next_ticket, max_ticket + 1)
+    return state
+
+
+def _read_legacy_state():
+    if not LEGACY_STATE_PATH.exists():
+        return _default_state()
+    try:
+        with LEGACY_STATE_PATH.open(encoding="utf-8") as state_file:
+            return _normalize_state(json.load(state_file))
+    except (OSError, json.JSONDecodeError):
+        backup_path = LEGACY_STATE_PATH.with_suffix(".bak.json")
+        try:
+            LEGACY_STATE_PATH.replace(backup_path)
+        except OSError:
+            pass
+        return _default_state()
+
+
+def _state_from_connection(connection):
+    row = connection.execute(
+        "SELECT payload FROM queue_state WHERE id = 1"
+    ).fetchone()
+    if row is None:
+        state = _read_legacy_state()
+        connection.execute(
+            "INSERT INTO queue_state (id, payload) VALUES (1, ?)",
+            (json.dumps(state),),
+        )
+        return state
+    return _normalize_state(json.loads(row[0]))
+
+
+def _apply_state(state):
+    global ticket_number
+    ticket_number = state["ticket_number"]
+    waiting_queue[:] = state["waiting_queue"]
+    consultants[:] = state["consultants"]
+    recent_calls[:] = state["recent_calls"]
+
+
+def load_state():
+    """Refresh in-memory state from SQLite, importing the legacy JSON once."""
+    with _database() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        state = _state_from_connection(connection)
+        connection.execute(
+            "UPDATE queue_state SET payload = ? WHERE id = 1",
+            (json.dumps(state),),
+        )
+    _apply_state(state)
+
+
+def read_monitor_state():
+    """Return the public monitor's active-consultant state from SQLite."""
+    with _database() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        state = _state_from_connection(connection)
+    return {
+        "waiting_queue": state["waiting_queue"],
+        "consultants": state["consultants"],
+        "recent_calls": state["recent_calls"][:8],
+        "public_call": state["public_call"],
+        "activity_log": state["activity_log"][:30],
+    }
+
+
+def _update_state(update):
+    with _database() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        state = _state_from_connection(connection)
+        result = update(state)
+        state = _normalize_state(state)
+        connection.execute(
+            "UPDATE queue_state SET payload = ? WHERE id = 1",
+            (json.dumps(state),),
+        )
+    _apply_state(state)
+    return result
+
+
+def _estimate_wait(state):
+    availability = [max(0, int(consultant.get("busy_for", 0)))
+                    for consultant in state["consultants"]]
+    if not availability:
+        return 0
+
+    queued_tickets = sorted(
+        state["waiting_queue"],
+        key=lambda ticket: int(ticket.get("ticket_number", 0)),
+    )
+    for ticket in queued_tickets:
+        consultant_index = min(
+            range(len(availability)),
+            key=lambda index: (availability[index], index),
+        )
+        availability[consultant_index] += service_times.get(ticket.get("service"), 0)
+    return min(availability)
 
 
 def estimate_wait_for_new_client():
-    num_consultants = max(1, len(consultants))
-    total_busy = sum(max(0, int(c.get("busy_for", 0))) for c in consultants)
-    queued_work = sum(service_times.get(client.get("service"), 0) for client in waiting_queue)
-    total_work = total_busy + queued_work
-    return math.ceil(total_work / num_consultants)
+    """Estimate start delay by scheduling existing FIFO work across consultants."""
+    with _database() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        state = _state_from_connection(connection)
+    _apply_state(state)
+    return _estimate_wait(state)
 
 
 def find_free_consultant():
-    for c in consultants:
-        if int(c.get("busy_for", 0)) == 0:
-            return c
+    load_state()
+    for consultant in consultants:
+        if int(consultant.get("busy_for", 0)) == 0:
+            return consultant
     return None
 
 
-def serve_next_client():
-    if not waiting_queue:
-        return None, "No clients in the queue."
+def _validated_consultant_id(state, consultant_id):
+    if consultant_id is None:
+        return None
+    consultant_id = int(consultant_id)
+    if not any(int(item.get("id", -1)) == consultant_id for item in state["consultants"]):
+        raise ValueError(f"Unknown consultant ID: {consultant_id}")
+    return consultant_id
 
-    free = find_free_consultant()
-    if not free:
-        return None, "No available consultants right now. Please wait or advance time."
 
-    try:
-        oldest_ticket = min(waiting_queue, key=lambda t: int(t.get("ticket_number", 0)))
-    except Exception:
-        oldest_ticket = waiting_queue[0]
+def _record_activity(
+    state,
+    action,
+    ticket_number=None,
+    consultant_ids=None,
+    ticket_numbers=None,
+    details="",
+    actor_label=None,
+):
+    activity = {
+        "action": action,
+        "actor_label": actor_label,
+        "ticket_number": ticket_number,
+        "consultant_ids": list(consultant_ids or []),
+        "ticket_numbers": list(ticket_numbers or []),
+        "details": details,
+        "created_at": time.time(),
+    }
+    state["activity_log"].insert(0, activity)
+    state["activity_log"] = state["activity_log"][:100]
 
-    waiting_queue.remove(oldest_ticket)
-    service_time = service_times.get(oldest_ticket.get("service"), 0)
-    free["busy_for"] = service_time
-    free["ticket"] = oldest_ticket
-    return oldest_ticket, free
+
+def record_staff_action(action: str):
+    """Record a staff dashboard action in prototype mode."""
+    def update(state):
+        _record_activity(state, action, actor_label="Local staff")
+
+    _update_state(update)
+
+
+def serve_next_client(consultant_id=None):
+    def update(state):
+        assigned_consultant_id = _validated_consultant_id(state, consultant_id)
+        if not state["waiting_queue"]:
+            _record_activity(
+                state,
+                "Call next client",
+                actor_label="Local staff",
+                details="No waiting tickets",
+            )
+            return None, "No clients in the queue."
+
+        free_consultant = next((
+            consultant for consultant in state["consultants"]
+            if int(consultant.get("busy_for", 0)) == 0
+            and not consultant.get("ticket")
+            and (
+                assigned_consultant_id is None
+                or int(consultant.get("id", -1)) == assigned_consultant_id
+            )
+        ), None)
+        if free_consultant is None:
+            if assigned_consultant_id is not None:
+                message = f"Consultant {assigned_consultant_id} is not available right now."
+            else:
+                message = "No available consultants right now. Please wait or advance time."
+            _record_activity(
+                state,
+                "Call next client",
+                actor_label="Local staff",
+                consultant_ids=[assigned_consultant_id] if assigned_consultant_id else [],
+                details=message,
+            )
+            return None, message
+
+        ticket_index = min(
+            range(len(state["waiting_queue"])),
+            key=lambda index: int(state["waiting_queue"][index].get("ticket_number", 0)),
+        )
+        ticket = state["waiting_queue"].pop(ticket_index)
+        ticket["status"] = "Called"
+        free_consultant["busy_for"] = service_times.get(ticket.get("service"), 0)
+        free_consultant["ticket"] = ticket
+        state["recent_calls"].insert(0, {
+            "ticket_number": int(ticket["ticket_number"]),
+            "service": ticket["service"],
+            "consultant_id": free_consultant["id"],
+            "status": "Called",
+        })
+        state["recent_calls"] = state["recent_calls"][:50]
+        _record_activity(
+            state,
+            "Call next client",
+            actor_label="Local staff",
+            ticket_number=int(ticket["ticket_number"]),
+            consultant_ids=[int(free_consultant["id"])],
+            ticket_numbers=[int(ticket["ticket_number"])],
+            details="Ticket assigned and displayed for calling",
+        )
+        return ticket, free_consultant
+
+    return _update_state(update)
+
+
+def mark_client_arrived(
+    ticket_number: int,
+    consultant_id=None,
+) -> bool:
+    """Confirm the currently displayed ticket arrived and is being assisted."""
+    def update(state):
+        assigned_consultant_id = _validated_consultant_id(state, consultant_id)
+        public_call = state.get("public_call")
+        if (
+            not public_call
+            or int(public_call.get("ticket_number", -1)) != ticket_number
+            or (
+                assigned_consultant_id is not None
+                and int(public_call.get("consultant_id", -1)) != assigned_consultant_id
+            )
+        ):
+            _record_activity(
+                state,
+                "Arrived",
+                actor_label="Local staff",
+                ticket_number=ticket_number,
+                details="No matching current public call",
+            )
+            return False
+
+        consultant = next(
+            (
+                item for item in state["consultants"]
+                if int(item.get("id", -1)) == int(public_call.get("consultant_id", -2))
+                and isinstance(item.get("ticket"), dict)
+                and int(item["ticket"].get("ticket_number", -1)) == ticket_number
+            ),
+            None,
+        )
+        if consultant is None:
+            _record_activity(
+                state,
+                "Arrived",
+                actor_label="Local staff",
+                ticket_number=ticket_number,
+                details="Current call has no active consultant assignment",
+            )
+            return False
+
+        consultant["ticket"]["status"] = "In service"
+        for call in state["recent_calls"]:
+            if (
+                int(call.get("ticket_number", -1)) == ticket_number
+                and int(call.get("consultant_id", -1)) == int(consultant["id"])
+            ):
+                call["status"] = "In service"
+                call["call_attempts"] = int(public_call.get("attempt", 1))
+                call["arrived_at"] = time.time()
+                break
+        state["public_call"] = None
+        _record_activity(
+            state,
+            "Arrived",
+            actor_label="Local staff",
+            ticket_number=ticket_number,
+            consultant_ids=[int(consultant["id"])],
+            ticket_numbers=[ticket_number],
+            details="Client marked in service",
+        )
+        return True
+
+    return _update_state(update)
 
 
 def advance_time(minutes: int):
     if minutes <= 0:
         return
-    for c in consultants:
-        remaining = max(0, int(c.get("busy_for", 0)) - minutes)
-        c["busy_for"] = remaining
-        if remaining == 0:
-            c["ticket"] = None
+
+    def update(state):
+        affected_consultants = [
+            consultant for consultant in state["consultants"]
+            if int(consultant.get("busy_for", 0)) > 0
+        ]
+        completed_tickets = []
+        for consultant in state["consultants"]:
+            remaining = max(0, int(consultant.get("busy_for", 0)) - minutes)
+            consultant["busy_for"] = remaining
+            if remaining == 0:
+                completed_ticket = consultant.get("ticket")
+                if isinstance(completed_ticket, dict):
+                    completed_tickets.append(int(completed_ticket.get("ticket_number", 0)))
+                    for call in state["recent_calls"]:
+                        if (
+                            int(call.get("ticket_number", -1))
+                            == int(completed_ticket.get("ticket_number", -2))
+                            and int(call.get("consultant_id", -1))
+                            == int(consultant.get("id", -2))
+                        ):
+                            call["status"] = "Completed"
+                            break
+                    public_call = state.get("public_call")
+                    if public_call and (
+                        int(public_call.get("ticket_number", -1))
+                        == int(completed_ticket.get("ticket_number", -2))
+                        and int(public_call.get("consultant_id", -1))
+                        == int(consultant.get("id", -2))
+                    ):
+                        state["public_call"] = None
+                consultant["ticket"] = None
+
+        affected_ids = [int(consultant["id"]) for consultant in affected_consultants]
+        _record_activity(
+            state,
+            "Advance time",
+            actor_label="Local staff",
+            consultant_ids=affected_ids,
+            ticket_numbers=[
+                int(consultant["ticket"]["ticket_number"])
+                for consultant in affected_consultants
+                if isinstance(consultant.get("ticket"), dict)
+            ] + completed_tickets,
+            details=(
+                f"Advanced simulated time by {minutes} minute(s)"
+                + (
+                    "; completed tickets "
+                    + ", ".join(f"{ticket_number:03}" for ticket_number in completed_tickets)
+                    if completed_tickets
+                    else ""
+                )
+            ),
+        )
+
+    _update_state(update)
 
 
 def cancel_ticket(ticket_no: int) -> bool:
-    for t in list(waiting_queue):
-        try:
-            if int(t.get("ticket_number", -1)) == ticket_no:
-                waiting_queue.remove(t)
-                return True
-        except Exception:
-            continue
-    return False
+    def update(state):
+        for index, ticket in enumerate(state["waiting_queue"]):
+            try:
+                if int(ticket.get("ticket_number", -1)) == ticket_no:
+                    state["waiting_queue"].pop(index)
+                    _record_activity(
+                        state,
+                        "Cancel ticket",
+                        actor_label="Local staff",
+                        ticket_number=int(ticket_no),
+                        details="No consultant assigned; waiting ticket removed",
+                    )
+                    return True
+            except (AttributeError, TypeError, ValueError):
+                continue
+        _record_activity(
+            state,
+            "Cancel ticket",
+            actor_label="Local staff",
+            ticket_number=int(ticket_no),
+            details="Ticket is not in the waiting queue",
+        )
+        return False
+
+    return _update_state(update)
 
 
 def add_ticket(service_name: str):
-    """Add a new ticket for service_name. Returns (ticket, estimated_wait)."""
-    global ticket_number
-    new_ticket = {"ticket_number": ticket_number, "service": service_name}
-    waiting_queue.append(new_ticket)
-    estimated = estimate_wait_for_new_client()
-    ticket_number += 1
-    write_monitor_state()
-    return new_ticket, estimated
+    """Add a ticket and return its estimated delay before service begins."""
+    def update(state):
+        estimated_wait = _estimate_wait(state)
+        new_ticket = {
+            "ticket_number": state["ticket_number"],
+            "service": service_name,
+        }
+        state["waiting_queue"].append(new_ticket)
+        state["ticket_number"] += 1
+        _record_activity(
+            state,
+            "Add ticket",
+            ticket_number=int(new_ticket["ticket_number"]),
+            details=f"Ticket added for {service_name}",
+            actor_label="Local staff",
+        )
+        return new_ticket, estimated_wait
+
+    return _update_state(update)
 
 
-# Initialize state on import
-load_state()
-# Ensure reasonable defaults
-if not consultants:
-    consultants = default_consultants()
+def get_next_public_call(now=None):
+    """Return the current public call, advancing or closing its call cycle."""
+    current_time = time.time() if now is None else float(now)
 
-# Ensure a monitor state exists
-write_monitor_state()
+    def update(state):
+        active_consultants = sorted(
+            (
+                consultant for consultant in state["consultants"]
+                if isinstance(consultant.get("ticket"), dict)
+                and consultant["ticket"].get("status") != "In service"
+            ),
+            key=lambda consultant: (
+                int(consultant["ticket"].get("ticket_number", 0)),
+                int(consultant.get("id", 0)),
+            ),
+        )
+        public_call = state.get("public_call")
+        assigned_consultant = None
+        if public_call:
+            assigned_consultant = next(
+                (
+                    consultant for consultant in active_consultants
+                    if int(consultant.get("id", 0)) == int(public_call.get("consultant_id", -1))
+                    and int(consultant["ticket"].get("ticket_number", 0))
+                    == int(public_call.get("ticket_number", -1))
+                ),
+                None,
+            )
+            if assigned_consultant is None:
+                public_call = None
+
+        if public_call:
+            due_at = float(public_call.get("next_attempt_at", current_time))
+            if current_time >= due_at:
+                attempts = int(public_call.get("attempt", 1))
+                if attempts < PUBLIC_CALL_ATTEMPTS:
+                    public_call["attempt"] = attempts + 1
+                    delay = (
+                        PUBLIC_CALL_GRACE_SECONDS
+                        if attempts + 1 == PUBLIC_CALL_ATTEMPTS
+                        else PUBLIC_CALL_INTERVAL_SECONDS
+                    )
+                    public_call["next_attempt_at"] = current_time + delay
+                    for call in state["recent_calls"]:
+                        if (
+                            int(call.get("ticket_number", -1))
+                            == int(public_call["ticket_number"])
+                            and int(call.get("consultant_id", -1))
+                            == int(public_call["consultant_id"])
+                        ):
+                            call["status"] = f"Calling ({attempts + 1}/{PUBLIC_CALL_ATTEMPTS})"
+                            break
+                else:
+                    assigned_consultant["busy_for"] = 0
+                    assigned_consultant["ticket"] = None
+                    for call in state["recent_calls"]:
+                        if (
+                            int(call.get("ticket_number", -1))
+                            == int(public_call["ticket_number"])
+                            and int(call.get("consultant_id", -1))
+                            == int(public_call["consultant_id"])
+                        ):
+                            call["status"] = "No-show"
+                            call["call_attempts"] = PUBLIC_CALL_ATTEMPTS
+                            break
+                    _record_activity(
+                        state,
+                        "No-show",
+                        ticket_number=int(public_call["ticket_number"]),
+                        consultant_ids=[int(public_call["consultant_id"])],
+                        ticket_numbers=[int(public_call["ticket_number"])],
+                        details="Three calls unanswered; consultant released",
+                        actor_label="Call timer",
+                    )
+                    public_call = None
+
+        active_consultants = [
+            consultant for consultant in active_consultants
+            if isinstance(consultant.get("ticket"), dict)
+            and consultant["ticket"].get("status") != "In service"
+        ]
+        if public_call is None and active_consultants:
+            next_consultant = active_consultants[0]
+            ticket = next_consultant["ticket"]
+            public_call = {
+                "consultant_id": int(next_consultant["id"]),
+                "ticket_number": int(ticket["ticket_number"]),
+                "attempt": 1,
+                "next_attempt_at": current_time + PUBLIC_CALL_INTERVAL_SECONDS,
+            }
+            for call in state["recent_calls"]:
+                if (
+                    int(call.get("ticket_number", -1)) == public_call["ticket_number"]
+                    and int(call.get("consultant_id", -1)) == public_call["consultant_id"]
+                ):
+                    call["status"] = f"Calling (1/{PUBLIC_CALL_ATTEMPTS})"
+                    break
+
+        state["public_call"] = public_call
+        if public_call is None:
+            return None
+        return {
+            "ticket_number": public_call["ticket_number"],
+            "consultant_id": public_call["consultant_id"],
+            "attempt": public_call["attempt"],
+        }
+
+    return _update_state(update)
+
+
+consultants = default_consultants()

@@ -7,15 +7,15 @@ from queue_core import (
     estimate_wait_for_new_client,
     cancel_ticket,
     advance_time,
-    write_monitor_state,
+    load_state,
+    mark_client_arrived,
+    record_staff_action,
     waiting_queue,
     consultants,
-    recent_calls,
 )
 
 
 def graceful_exit(signum=None, frame=None):
-    write_monitor_state()
     print("\nState saved. Exiting.")
     sys.exit(0)
 
@@ -34,6 +34,7 @@ def print_menu():
     print("8. View consultants status")
     print("9. Advance time (simulate minutes)")
     print("10. Cancel a ticket")
+    print("11. Confirm client arrived")
     print("0. Exit")
     print("=================================")
 
@@ -65,6 +66,7 @@ def print_consultants():
 
 if __name__ == "__main__":
     while True:
+        load_state()
         print_menu()
         try:
             choice = input("Choose your service: ").strip()
@@ -83,22 +85,17 @@ if __name__ == "__main__":
                 print(f"Service: {ticket['service']}")
                 print(f"Assigned to consultant: {consultant['id']}")
                 print("Clients waiting in the queue:", len(waiting_queue))
-                recent_calls.insert(0, {
-                    "ticket_number": int(ticket["ticket_number"]),
-                    "service": ticket["service"],
-                    "consultant_id": consultant["id"],
-                })
-                recent_calls[:] = recent_calls[:50]
-                write_monitor_state()
             else:
                 print(info)
             continue
 
         if choice == "7":
+            record_staff_action("Viewed waiting queue")
             print_full_queue()
             continue
 
         if choice == "8":
+            record_staff_action("Viewed consultant status")
             print_consultants()
             continue
 
@@ -109,7 +106,6 @@ if __name__ == "__main__":
                 print("Please enter a valid number of minutes.")
                 continue
             advance_time(minutes)
-            write_monitor_state()
             print(f"Advanced time by {minutes} minute(s).")
             print_consultants()
             continue
@@ -121,10 +117,21 @@ if __name__ == "__main__":
                 print("Please enter a valid ticket number.")
                 continue
             if cancel_ticket(tno):
-                write_monitor_state()
                 print(f"Ticket {tno:03} cancelled.")
             else:
                 print(f"Ticket {tno:03} not found in waiting queue.")
+            continue
+
+        if choice == "11":
+            try:
+                tno = int(input("Enter the ticket number shown on the monitor: ").strip())
+            except ValueError:
+                print("Please enter a valid ticket number.")
+                continue
+            if mark_client_arrived(tno):
+                print(f"Ticket {tno:03} marked in service.")
+            else:
+                print(f"Ticket {tno:03} is not the current public call.")
             continue
 
         if choice in services:

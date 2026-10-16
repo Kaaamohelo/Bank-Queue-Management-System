@@ -6,80 +6,98 @@ This is an educational, single-PC simulation, not software for real banking oper
 
 ## What changed
 
-This repository was refactored so all programs share a single source of truth:
+The staff controller, staff monitor, and client-facing monitor share a local SQLite database:
 
-- Added `queue_core.py` — shared core that implements:
-  - persistent, safe state load/save to `queue_state.json` (atomic writes)
-  - ticket generation and recovery (prevents duplicates)
-  - queue management and capacity for eight consultants
-  - migration of older saved states to eight consultants while preserving assignments
-  - helper APIs: `add_ticket`, `serve_next_client`, `estimate_wait_for_new_client`, `cancel_ticket`, `advance_time`
-- `Final Product_05.py` now uses the shared core (robust CLI, graceful shutdown).
-- `Screen Monitor.py` reads the same `queue_state.json` and displays the active ticket, consultant, and patience message.
-- Prototype scripts were adapted to import `queue_core.py` so they behave as small demos while sharing ticket numbering and queue state:
-  - `Same Ticket Prototype_01.py`
-  - `Increase Tickets Same Service_02.py`
-  - `Unlimited Sequence Prototype_03.py`
-  - `Estimate waiting times_04.py`
+- `queue_core.py` contains transactional state updates, ticket generation and recovery, queue management for eight consultants, and wait-time scheduling.
+- `Final Product_demo.py` provides the staff CLI controller and refreshes state between menu actions.
+- `Consultant_Monitor_Display.py` is a live dashboard for the waiting queue, consultant assignments, and recent calls, with an arrival-confirmation action for the selected called ticket.
+- The staff controller and monitor open directly in prototype mode without employee login or account setup.
+- `Client_Monitor_Display.py` calls one active ticket at a time, repeating it three times before moving to the next held call.
+- Existing JSON state is imported once when the SQLite database is first created. The original `queue_state.json` is left unchanged.
+- Prototype scripts use the shared root-level `queue_core.py` from their phase packages.
 
-All code now uses the same JSON snapshot format so the monitor and any script see the same queue and consultant state.
+SQLite transactions prevent concurrent local controller instances from issuing duplicate tickets or overwriting each other's queue updates.
 
 ## Monitor Preview
 
-The monitor displays the ticket currently being served, the consultant number, and a patience message.
+The client monitor displays one ticket, its consultant destination, and the current call attempt. It does not display staff queue totals or consultant status details. When several consultants call clients at once, calls are presented in ticket order rather than simultaneously.
 
-![Bank queue monitor preview showing the active ticket and consultant](image-1792139293746.png)
+![Client monitor preview showing ticket 001 at Consultant 1](client_monitor/monitor_preview_1.png)
 
-When multiple consultants are serving clients, the current monitor displays the first active consultant only.
+![Client monitor preview showing ticket 006 and call attempt 1 of 3](client_monitor/monitor_preview_2.png)
+
+The monitor repeats each ticket every 5 seconds. After the third call, it allows 10 seconds for the client to respond. Unanswered tickets are marked as no-shows, their consultant is freed, and the next active call is shown.
 
 ## Files of interest
 
-- queue_core.py — shared core implemented for reliability and alignment
-- Final Product_05.py — main CLI program (uses the core)
-- Screen Monitor.py — Tkinter-based display (reads `queue_state.json`)
-- queue_state.json — runtime snapshot (created/updated at runtime)
-- image-1792139293746.png — monitor screenshot
-- Same Ticket Prototype_01.py, Increase Tickets Same Service_02.py, Unlimited Sequence Prototype_03.py, Estimate waiting times_04.py — small demos built on the core
+- `queue_core.py` — shared queue logic, SQLite persistence, and wait estimates
+- `Final Product_demo.py` — main staff CLI
+- `Consultant_Monitor_Display.py` — staff-facing live dashboard
+- `Client_Monitor_Display.py` — Tkinter client-facing display
+- `single_ticket_demo.py`, `repeat_service_ticket_demo.py`, `continuous_ticket_sequence_demo.py`, `wait_time_estimate_demo.py` — prototype demos
+- `client_monitor/` — both client-monitor screenshots
+- `single_ticket_demo.py`, `repeat_service_ticket_demo.py`, `continuous_ticket_sequence_demo.py`, `wait_time_estimate_demo.py` — focused prototype demos
+- queue_state.sqlite3 — runtime database (created on first run)
+- test_queue_core.py — automated queue-core tests
+- queue_state.json — legacy state imported once if no SQLite database exists
 
 ## Requirements
 
 - Python 3.8+ recommended
-- `tkinter` (only required to run `Screen Monitor.py`), usually included with desktop Python
+- `tkinter` (required for both monitor windows), usually included with desktop Python
 - No third-party Python packages are required
 
 ## Run on Windows
 
-Open two terminals in the repository directory. Start the queue controls in one:
+Run commands from the repository root. Open three terminals and start the staff controller in one:
 
 ```powershell
-py ".\Final Product_05.py"
+py ".\Final Product_demo.py"
 ```
 
-Start the public monitor in the other:
+Start the client-facing monitor in the other:
 
 ```powershell
-py ".\Screen Monitor.py"
+py ".\Client_Monitor_Display.py"
 ```
 
-In the controls menu, choose a service from `1`-`5` to add a ticket, then choose `6` to call the next client. Use `7` to view the queue, `8` to view consultant status, `9` to advance simulated time, and `10` to cancel a waiting ticket. Choose `0` to exit.
+Start the staff-facing dashboard in the third:
+
+```powershell
+py ".\Consultant_Monitor_Display.py"
+```
+
+The staff controller and staff monitor start without login prompts. `Call next client` automatically assigns the next ticket to the next available consultant. In the staff monitor, use `View full queue` and `Consultant status`; select the row marked `CALLING` and use `Arrived` to confirm arrival. Enter minutes for `Advance time`, or a waiting ticket number for `Cancel ticket`. The controller CLI keeps its numbered actions; option `11` asks for the ticket number shown on the client monitor. Staff actions are recorded as `Local staff`; individual employee accountability is not enabled in this prototype. The client-facing monitor remains public and read-only.
 
 On systems without the Windows `py` launcher, replace `py` with `python` or `python3`.
+
+## Tests
+
+Run the standard-library test suite from the repository directory:
+
+```powershell
+py -m unittest discover -v
+```
+
+The tests use temporary database and legacy-state files; they do not modify the runtime queue.
 
 ## Prototype Demos
 
 These scripts share the same local queue state:
 
 ```powershell
-py ".\Same Ticket Prototype_01.py"
-py ".\Increase Tickets Same Service_02.py"
-py ".\Unlimited Sequence Prototype_03.py"
-py ".\Estimate waiting times_04.py"
+py ".\single_ticket_demo.py"
+py ".\repeat_service_ticket_demo.py"
+py ".\continuous_ticket_sequence_demo.py"
+py ".\wait_time_estimate_demo.py"
 ```
 
 ## Notes & recommendations
 
-- `queue_state.json` stores local runtime data. The core uses atomic writes, recovers the ticket counter, and adds missing consultants when loading older saved states.
-- The controller and monitor share a local JSON file; this version does not share queue state across computers and has no authentication or production security controls.
+- SQLite is the source of truth after the one-time JSON import. It serializes local updates and recovers ticket numbering from existing assignments.
+- The client call cycle is persisted, so restarting the monitor does not reset the three-call count. No-shows and completed services appear in the staff activity log.
+- Wait estimates schedule existing FIFO tickets against each consultant's remaining busy time. They assume staff call the next client promptly when a consultant becomes available.
+- The controller and monitors share local state on one computer; this prototype has no employee login and is not production software.
 - Use simulated data only. Do not enter real customer information.
 
 ## Author
