@@ -1,0 +1,55 @@
+{
+  "waiting_queue": [
+    {
+      "ticket_number": 4,
+      "service": "Funeral/Life Cover"
+    },
+    {
+      "ticket_number": 5,
+      "service": "Business account"
+    }
+  ],
+  "consultants": [
+    {
+      "id": 1,
+      "busy_for": 15,
+      "ticket": {
+        "ticket_number": 1,
+        "service": "Credit enquiry"
+      }
+    },
+    {
+      "id": 2,
+      "busy_for": 15,
+      "ticket": {
+        "ticket_number": 2,
+        "service": "Credit enquiry"
+      }
+    },
+    {
+      "id": 3,
+      "busy_for": 10,
+      "ticket": {
+        "ticket_number": 3,
+        "service": "Funeral/Life Cover"
+      }
+    }
+  ],
+  "recent_calls": [
+    {
+      "ticket_number": 3,
+      "service": "Funeral/Life Cover",
+      "consultant_id": 3
+    },
+    {
+      "ticket_number": 2,
+      "service": "Credit enquiry",
+      "consultant_id": 2
+    },
+    {
+      "ticket_number": 1,
+      "service": "Credit enquiry",
+      "consultant_id": 1
+    }
+  ]
+}
