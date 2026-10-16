@@ -21,6 +21,12 @@ This repository was refactored so all programs share a single source of truth:
 
 All code now uses the same JSON snapshot format so the monitor and any script see the same queue and consultant state.
 
+## Monitor Preview
+
+The monitor displays the ticket currently being served, the consultant number, and a patience message.
+
+![Bank queue monitor preview showing the active ticket and consultant](image-1792139293746.png)
+
 ## Files of interest
 
 - queue_core.py — shared core implemented for reliability and alignment
