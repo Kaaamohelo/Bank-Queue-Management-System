@@ -7,6 +7,10 @@
     {
       "ticket_number": 5,
       "service": "Business account"
+    },
+    {
+      "ticket_number": 6,
+      "service": "Credit enquiry"
     }
   ],
   "consultants": [
