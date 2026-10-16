@@ -1,68 +1,42 @@
 # Bank Queue Management System
 
-A Python-based queue management simulation for a bank branch.The system allows clients to select a service,receive a ticket number and wait in a shared queue while staff monitor consultant availability and advance time to simulate service completion.
+A Python-based queue management simulation for a bank branch. This repository contains a unified and refactored implementation that centralizes queue logic into a shared core so multiple scripts (final app, monitor, and prototypes) operate on the same state.
 
-## Project Overview
+## What changed
 
-This project was designed to model a simple bank service desk where:
+This repository was refactored so all programs share a single source of truth:
 
-- clients choose a banking service,
-- tickets are generated in sequence,
-- waiting times are estimated,
-- and staff can call the next client and monitor consultant status.
+- Added `queue_core.py` — shared core that implements:
+  - persistent, safe state load/save to `queue_state.json` (atomic writes)
+  - ticket generation and recovery (prevents duplicates)
+  - queue and consultant state management
+  - helper APIs: `add_ticket`, `serve_next_client`, `estimate_wait_for_new_client`, `cancel_ticket`, `advance_time`
+- `Final Product_05.py` now uses the shared core (robust CLI, graceful shutdown).
+- `Screen Monitor.py` reads the same `queue_state.json` produced by the core and displays the live state.
+- Prototype scripts were adapted to import `queue_core.py` so they behave as small demos while sharing ticket numbering and queue state:
+  - `Same Ticket Prototype_01.py`
+  - `Increase Tickets Same Service_02.py`
+  - `Unlimited Sequence Prototype_03.py`
+  - `Estimate waiting times_04.py`
 
-The current version focuses on queue logic and basic simulation behavior using a command-line interface.
+All code now uses the same JSON snapshot format so the monitor and any script see the same queue and consultant state.
 
-## Main File
+## Files of interest
 
-- `Final Product_05.py`
-
-## Features
-
-- Service selection menu
-- Unique ticket number generation
-- Shared waiting queue for all services
-- Estimated waiting time before service begins
-- Consultant availability tracking
-- Queue viewing functionality
-- Time simulation for completed service work
-- Ticket cancellation from the waiting queue
-- Oldest-ticket-first service priority
-
-## Banking Services Included
-
-1. Open an account
-2. Credit enquiry
-3. Funeral/Life Cover
-4. Business account
-5. General enquiries
-
-## How It Works
-
-1. A client chooses a service from the menu.
-2. A ticket number is assigned.
-3. The client is added to the shared queue.
-4. The system estimates how long the client may wait before being served.
-5. Staff can view the queue,check consultant status,or call the next client.
-6. Time can be advanced to simulate the completion of consultant work.
-
-## Screenshot
-
-N/A
-
-## Technology Stack
-
-- Python 3
-- Visual Studio Code
-- Git and GitHub
+- queue_core.py — shared core implemented for reliability and alignment
+- Final Product_05.py — main CLI program (uses the core)
+- Screen Monitor.py — Tkinter-based display (reads `queue_state.json`)
+- queue_state.json — runtime snapshot (created/updated at runtime)
+- Same Ticket Prototype_01.py, Increase Tickets Same Service_02.py, Unlimited Sequence Prototype_03.py, Estimate waiting times_04.py — small demos built on the core
 
 ## Requirements
 
-- Python 3.x
+- Python 3.8+ recommended
+- `tkinter` (only required to run `Screen Monitor.py`) — usually included with system Python on desktops
 
-## Run the Project
+## Run the main queue app
 
-From the project directory, run:
+From the repository directory:
 
 python "Final Product_05.py"
 
@@ -70,63 +44,23 @@ If your system uses Python 3 explicitly:
 
 python3 "Final Product_05.py"
 
-## Run the Screen Monitor
-
-Start `Final Product_05.py` in one terminal, then start the monitor in a second terminal:
+Run the monitor in a second terminal (optional):
 
 python "Screen Monitor.py"
 
-The monitor reads the live queue snapshot created by the queue program and refreshes automatically. It displays active service, consultant, waiting count, and recent calls.
+Run a prototype demo (they share queue state):
 
-## Example Menu
+python "Same Ticket Prototype_01.py"
+python "Increase Tickets Same Service_02.py"
+python "Unlimited Sequence Prototype_03.py"
+python "Estimate waiting times_04.py"
 
-===== BANK QUEUE MANAGEMENT =====
+## Notes & recommendations
 
-Select your service
-
-1. Open an account
-2. Credit enquiry
-3. Funeral/Life Cover
-4. Business account
-5. General enquiries
-6. Call next client
-7. View full queue
-8. View consultants status
-9. Advance time (simulate minutes)
-10. Cancel a ticket
-0. Exit
-
-=================================
-
-## Project Status
-
-Status: In development
-
-This project is an educational prototype focused on queue management, ticket generation,waiting estimates and basic service simulation.
-
-## Future Improvements
-
-- Add more realistic queue logic for multiple service types and consultant workloads
-- Improve waiting-time calculations based on active consultants and client demand
-- Implement a graphical user interface
-- Save queue state between program runs
-- Add staff authentication and administrative controls
-- Introduce ticket printing or digital queue display
-
-## Learning Goals
-
-This project supports learning in:
-
-- Python programming fundamentals
-- Lists and dictionaries
-- Control flow and loops
-- User input handling
-- Basic simulation logic
-- Queue management concepts
-
-## Notes
-
-This project is intended for educational practice and simulation purposes. It does not process real banking transactions or customer financial records.
+- `queue_state.json` stores the runtime snapshot. The core uses atomic writes and performs a basic recovery if the file becomes corrupted.
+- The core recovers the ticket counter to avoid duplicate ticket numbers after restarts.
+- If you want a smaller surface for production, consider removing the prototype scripts or moving them into a `demos/` directory.
+- I can add a `requirements.txt` or tests if you want—ask and I will add them.
 
 ## Author
 
