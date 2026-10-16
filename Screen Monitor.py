@@ -12,36 +12,44 @@ class BankingQueueMonitor:
         self.root.state("zoomed")
         self.root.configure(bg="#1a1a1a")
 
+        self.title_font = font.Font(family="Arial", size=28, weight="bold")
         self.ticket_font = font.Font(family="Arial", size=112, weight="bold")
         self.consultant_font = font.Font(family="Arial", size=32, weight="bold")
         self.message_font = font.Font(family="Arial", size=20, weight="bold")
 
         self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_rowconfigure(0, weight=3)
-        self.root.grid_rowconfigure(1, weight=1)
-        self.root.grid_rowconfigure(2, weight=0)
+        self.root.grid_rowconfigure(0, weight=0)
+        self.root.grid_rowconfigure(1, weight=3)
+        self.root.grid_rowconfigure(2, weight=1)
+        self.root.grid_rowconfigure(3, weight=0)
 
         self.setup_display()
         self.refresh_state()
 
     def setup_display(self):
+        status_label = tk.Label(
+            self.root, text="NOW SERVING", font=self.title_font,
+            fg="#00ffcc", bg="#1a1a1a",
+        )
+        status_label.grid(row=0, column=0, pady=(24, 8))
+
         self.lbl_ticket = tk.Label(
             self.root, text="---", font=self.ticket_font,
             fg="#ffffff", bg="#262626", relief="flat",
         )
-        self.lbl_ticket.grid(row=0, column=0, sticky="nsew", padx=100, pady=(50, 20))
+        self.lbl_ticket.grid(row=1, column=0, sticky="nsew", padx=100, pady=(10, 20))
 
         self.lbl_counter = tk.Label(
             self.root, text="CONSULTANT --", font=self.consultant_font,
             fg="#ffcc00", bg="#1a1a1a",
         )
-        self.lbl_counter.grid(row=1, column=0, pady=10)
+        self.lbl_counter.grid(row=2, column=0, pady=10)
 
         message_label = tk.Label(
             self.root, text="THANK YOU FOR YOUR PATIENCE", font=self.message_font,
             fg="#aaaaaa", bg="#1a1a1a",
         )
-        message_label.grid(row=2, column=0, pady=(10, 24), sticky="s")
+        message_label.grid(row=3, column=0, pady=(10, 24), sticky="s")
 
     def refresh_state(self):
         try:
