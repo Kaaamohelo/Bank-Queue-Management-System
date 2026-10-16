@@ -37,6 +37,31 @@
         "ticket_number": 3,
         "service": "Funeral/Life Cover"
       }
+    },
+    {
+      "id": 4,
+      "busy_for": 0,
+      "ticket": null
+    },
+    {
+      "id": 5,
+      "busy_for": 0,
+      "ticket": null
+    },
+    {
+      "id": 6,
+      "busy_for": 0,
+      "ticket": null
+    },
+    {
+      "id": 7,
+      "busy_for": 0,
+      "ticket": null
+    },
+    {
+      "id": 8,
+      "busy_for": 0,
+      "ticket": null
     }
   ],
   "recent_calls": [
