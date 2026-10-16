@@ -1,9 +1,13 @@
+import json
 import math
+from pathlib import Path
 
 # Bank Queue Management System (Final Product)
 
 ticket_number = 1
 waiting_queue = []
+recent_calls = []
+monitor_state_path = Path(__file__).with_name("queue_state.json")
 
 service_times = {
     "Open an account": 10,
@@ -15,7 +19,7 @@ service_times = {
 
 available_consultants = 3
 # Track each consultant's remaining busy time (in minutes). 0 means free.
-consultants = [{"id": i + 1, "busy_for": 0} for i in range(available_consultants)]
+consultants = [{"id": i + 1, "busy_for": 0, "ticket": None} for i in range(available_consultants)]
 
 services = {
     "1": "Open an account",
@@ -38,6 +42,15 @@ def print_menu():
     print("10. Cancel a ticket")
     print("0. Exit")
     print("=================================")
+
+
+def write_monitor_state():
+    state = {
+        "waiting_queue": waiting_queue,
+        "consultants": consultants,
+        "recent_calls": recent_calls[:8],
+    }
+    monitor_state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
 def estimate_wait_for_new_client():
@@ -76,6 +89,7 @@ def serve_next_client():
     waiting_queue.remove(oldest_ticket)
     service_time = service_times.get(oldest_ticket["service"], 0)
     free["busy_for"] = service_time
+    free["ticket"] = oldest_ticket
     return oldest_ticket, free
 
 
@@ -107,6 +121,8 @@ def advance_time(minutes):
         return
     for c in consultants:
         c["busy_for"] = max(0, c["busy_for"] - minutes)
+        if c["busy_for"] == 0:
+            c["ticket"] = None
 
 
 def cancel_ticket(ticket_no):
@@ -116,6 +132,8 @@ def cancel_ticket(ticket_no):
             return True
     return False
 
+
+write_monitor_state()
 
 while True:
     print_menu()
@@ -140,6 +158,12 @@ while True:
             print(f"Service: {ticket['service']}")
             print(f"Assigned to consultant: {consultant['id']}")
             print("Clients waiting in the queue:", len(waiting_queue))
+            recent_calls.insert(0, {
+                "ticket_number": ticket["ticket_number"],
+                "service": ticket["service"],
+                "consultant_id": consultant["id"],
+            })
+            write_monitor_state()
         else:
             print(info)
         continue
@@ -162,6 +186,7 @@ while True:
             print("Please enter a valid number of minutes.")
             continue
         advance_time(minutes)
+        write_monitor_state()
         print(f"Advanced time by {minutes} minute(s).")
         print_consultants()
         continue
@@ -174,6 +199,7 @@ while True:
             print("Please enter a valid ticket number.")
             continue
         if cancel_ticket(tno):
+            write_monitor_state()
             print(f"Ticket {tno:03} cancelled.")
         else:
             print(f"Ticket {tno:03} not found in waiting queue.")
@@ -192,6 +218,7 @@ while True:
         # Add the new client to the shared queue.
         new_ticket = {"ticket_number": ticket_number, "service": service}
         waiting_queue.append(new_ticket)
+        write_monitor_state()
 
         print("\n=======================================")
         print("            BANK QUEUE TICKET")
