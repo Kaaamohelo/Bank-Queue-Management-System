@@ -1,7 +1,14 @@
-ticket_number = 1
+"""
+Prototype: repeatedly issue tickets for Credit enquiry using shared core.
+"""
 
-while True:
+from queue_core import add_ticket
 
-    print(f"Credit{ticket_number:03}")
-    ticket_number = ticket_number + 1
-    user_input = input("Press enter to issue the next ticket")
+print("Press Enter to issue the next Credit enquiry ticket. Ctrl+C to exit.")
+try:
+    while True:
+        input()
+        ticket, est = add_ticket("Credit enquiry")
+        print(f"Issued ticket {int(ticket['ticket_number']):03} (est start: {est} min)")
+except KeyboardInterrupt:
+    print("Stopped.")
