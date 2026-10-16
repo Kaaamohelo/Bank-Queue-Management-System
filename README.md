@@ -70,6 +70,14 @@ If your system uses Python 3 explicitly:
 
 python3 "Final Product_05.py"
 
+## Run the Screen Monitor
+
+Start `Final Product_05.py` in one terminal, then start the monitor in a second terminal:
+
+python "Screen Monitor.py"
+
+The monitor reads the live queue snapshot created by the queue program and refreshes automatically. It displays active service, consultant, waiting count, and recent calls.
+
 ## Example Menu
 
 ===== BANK QUEUE MANAGEMENT =====
