@@ -22,6 +22,8 @@ services = {
     "5": "General enquiries",
 }
 
+DEFAULT_CONSULTANT_COUNT = 8
+
 # Runtime state
 ticket_number = 1
 waiting_queue = []
@@ -29,7 +31,7 @@ recent_calls = []
 consultants = []
 
 
-def default_consultants(count=3):
+def default_consultants(count=DEFAULT_CONSULTANT_COUNT):
     return [{"id": i + 1, "busy_for": 0, "ticket": None} for i in range(count)]
 
 
@@ -54,7 +56,7 @@ def load_state():
     """Load state from queue_state.json — recovers gracefully on error."""
     global ticket_number, waiting_queue, consultants, recent_calls
     if not monitor_state_path.exists():
-        consultants = default_consultants(3)
+        consultants = default_consultants()
         waiting_queue = []
         recent_calls = []
         ticket_number = 1
@@ -70,20 +72,32 @@ def load_state():
             monitor_state_path.replace(backup)
         except Exception:
             pass
-        consultants = default_consultants(3)
+        consultants = default_consultants()
         waiting_queue = []
         recent_calls = []
         ticket_number = 1
         return
 
     waiting_queue = state.get("waiting_queue", []) or []
-    consultants = state.get("consultants", []) or default_consultants(3)
+    consultants = state.get("consultants", []) or default_consultants()
     recent_calls = state.get("recent_calls", []) or []
 
     for idx, c in enumerate(consultants):
         c.setdefault("busy_for", 0)
         c.setdefault("ticket", None)
         c.setdefault("id", idx + 1)
+
+    next_consultant_id = 1
+    while len(consultants) < DEFAULT_CONSULTANT_COUNT:
+        existing_ids = {consultant.get("id") for consultant in consultants}
+        while next_consultant_id in existing_ids:
+            next_consultant_id += 1
+        consultants.append({
+            "id": next_consultant_id,
+            "busy_for": 0,
+            "ticket": None,
+        })
+        next_consultant_id += 1
 
     # Recover ticket number to avoid duplicates
     max_ticket = 0
@@ -192,7 +206,7 @@ def add_ticket(service_name: str):
 load_state()
 # Ensure reasonable defaults
 if not consultants:
-    consultants = default_consultants(3)
+    consultants = default_consultants()
 
 # Ensure a monitor state exists
 write_monitor_state()
